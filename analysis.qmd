@@ -4,14 +4,29 @@ format: html
 editor: visual
 ---
 
-## Running Code
+```{r}
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+c_light <- c("#DCBCBC")
+c_light_highlight <- c("#C79999")
+c_mid <- c("#B97C7C")
+c_mid_highlight <- c("#A25050")
+c_dark <- c("#8F2727")
+c_dark_highlight <- c("#7C0000")
+
+c_light_teal <- c("#6B8E8E")
+c_mid_teal <- c("#487575")
+c_dark_teal <- c("#1D4F4F")
+
+nom_colors <- c("#DCBCBC", "#C79999", "#B97C7C", "#A25050", "#8F2727", "#7C0000")
+```
+
+## Running Code
 
 ```{r}
 
 util <- new.env()
 source('functions.R', local=util)
+
 
 base_list <- util$prep_base_data()
 d_init <- base_list$d_init
@@ -19,8 +34,8 @@ locations_init <- base_list$locations_init
 
 # locations_init$max_temp_date <- '2025-02-04'
 
-util$pull_daily_temperature_data(locations_init, out_file = 'data/daily_temperature.csv', max_date = '2025-02-04', write_to_file = T)
-util$pull_forecasted_temperature_data(locations_init, out_file = 'data/daily_forecasted_temperature.csv', min_date = '2025-02-01', max_date = '2025-06-01', write_to_file = T)
+util$pull_daily_temperature_data(locations_init, out_file = 'data/daily_temperature.csv', max_date = '2025-02-04', write_to_file = F)
+util$pull_forecasted_temperature_data(locations_init, out_file = 'data/daily_forecasted_temperature.csv', min_date = '2025-02-01', max_date = '2025-06-01', write_to_file = F)
 
 
 daily_temp_init <- read.csv('data/daily_temperature.csv')

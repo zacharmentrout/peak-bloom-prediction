@@ -10,6 +10,13 @@ parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
 
 library(openmeteo)
 library(stringr)
+library(colormap)
+library(scales)
+
+
+par(family="serif", las=1, bty="l", 
+    cex.axis=1, cex.lab=1, cex.main=1,
+    xaxs="i", yaxs="i", mar = c(5, 5, 3, 5))
 
 prep_base_data <- function() {
   d_wash <- read.csv("data/washingtondc.csv")
