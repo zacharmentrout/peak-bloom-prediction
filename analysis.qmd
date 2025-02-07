@@ -1,0 +1,41 @@
+---
+title: "Peak Bloom Prediction"
+format: html
+editor: visual
+---
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+
+util <- new.env()
+source('functions.R', local=util)
+
+base_list <- util$prep_base_data()
+d_init <- base_list$d_init
+locations_init <- base_list$locations_init
+
+# locations_init$max_temp_date <- '2025-02-04'
+
+util$pull_daily_temperature_data(locations_init, out_file = 'data/daily_temperature.csv', max_date = '2025-02-04', write_to_file = T)
+util$pull_forecasted_temperature_data(locations_init, out_file = 'data/daily_forecasted_temperature.csv', min_date = '2025-02-01', max_date = '2025-06-01', write_to_file = T)
+
+
+daily_temp_init <- read.csv('data/daily_temperature.csv')
+daily_temp_init$id<- paste(daily_temp_init$date, daily_temp_init$location, sep = "_")  # Create a composite key
+daily_temp <- daily_temp_init[order(daily_temp_init$id, daily_temp_init$timestamp_run, decreasing = TRUE), ][!duplicated(daily_temp_init$id), ]
+
+
+
+mod_data <- util$prep_mod_data(pheno_data_init = d_init, temp_data_init = daily_temp, plot_temp = F)
+```
+
+```{r}
+
+
+
+
+
+```
