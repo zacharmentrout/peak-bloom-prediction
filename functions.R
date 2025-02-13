@@ -139,9 +139,20 @@ pull_forecasted_temperature_data <- function(locations_df, out_file, min_date='2
   while(k <= nrow(locations_df)) {
     row <- locations_df[k,]
     loc <- as.numeric(row[,c('lat','long')])
+    
+    if (is.na(min_date)) {
+      date_min <- max(paste0(str_pad(row[,'min_year']-1, width=4, 'left', pad='0'), '-01-01'), '1950-01-01')
+    } else {
+      date_min <- min_date
+    }
+    if (is.na(max_date)) {
+      date_max <- max(c(paste0(row[,'max_year'], '-12-31'), '1950-01-01'))
+    } else {
+      date_max <- max_date
+    }
 
     tryCatch( {
-      temp <- get_forecasted_temperature(loc, min_date, max_date)
+      temp <- get_forecasted_temperature(loc, date_min, date_max)
       temp$location <- row[,'location']
       temp$timestamp_run <- Sys.time()
       
