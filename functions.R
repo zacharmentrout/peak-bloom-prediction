@@ -267,7 +267,7 @@ logit <- function(x, x0=0, k=1) {
 
 
 # Concatenate ragged site-year data into a single array 
-format_site_data <- function(site_temp_data, site_pheno_data, site_years) {
+format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_forecast_temp_data) {
   N_site_years <- nrow(site_years)
   
   max_chill_days <- max(site_pheno_data$startdate)
@@ -370,7 +370,7 @@ plot_realizations <- function(xs, fs, name="",
     lines(xs, fs[plot_idx[j],], col=line_colors[j], lwd=2)
 }
 
-prep_mod_data <- function(pheno_data_init, temp_data_init, plot_temp=F) {
+prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_init, plot_temp=F) {
   
   years <- 1940:2024
   years <- years[(years - 1) %in% years]
@@ -407,17 +407,34 @@ prep_mod_data <- function(pheno_data_init, temp_data_init, plot_temp=F) {
   temp_data <- temp_data[temp_data$year %in% years,]
   temp_data <- temp_data[,c('year_init', 'year', 'month', 'dom', 'value', 'day', 'location', 'date')]
   
+  # forecasted temp data
+  forecast_temp_data <- forecast_temp_data_init[forecast_temp_data_init$location %in% unique(pheno_data$location),]
+  forecast_temp_data$year_init <- as.numeric(substr(forecast_temp_data$date, 1, 4))
+  forecast_temp_data$month <- as.numeric(substr(forecast_temp_data$date, 6, 7))
+  forecast_temp_data$dom <- as.numeric(substr(forecast_temp_data$date, 9, 10))
+  forecast_temp_data$value <- forecast_temp_data$daily_temperature_2m_mean
+  forecast_temp_data$day <- as.numeric(format(as.Date(forecast_temp_data$date), "%j"))
+  
+  unique_forecast_temp_dates <- sort(unique(forecast_temp_data$date))
+  map_forecast_temp_dates_to_year <- data.frame(date=as.Date(unique_forecast_temp_dates), year=sapply(unique_forecast_temp_dates, function(d) {unique(
+    pheno_data$year[pheno_data$bloom_cycle_start_date <= d & d <= pheno_data$bloom_cycle_end_date])[1]}))
+  forecast_temp_data <- merge(forecast_temp_data, map_forecast_temp_dates_to_year, by='date', all.x=T, all.y=F)
+  forecast_temp_data <- forecast_temp_data[forecast_temp_data$year %in% years,]
+  forecast_temp_data <- forecast_temp_data[,c('year_init', 'year', 'month', 'dom', 'value', 'day', 'location', 'date')]  
+  
+  
   
   # Order temp and pheno data
   temp_data <- temp_data[order(temp_data$location, temp_data$date),]
+  forecast_temp_data <- forecast_temp_data[order(forecast_temp_data$location, forecast_temp_data$date),]
   pheno_data <- pheno_data[order(pheno_data$location, pheno_data$year),]
-  
+
   # Set valid years.
   sites_and_years <- unique(pheno_data[,c('location', 'year')])
   sites_and_years <- sites_and_years[order(sites_and_years$location, sites_and_years$year),]
   
   # Concatenate yearly data.
-  site_data <- format_site_data(temp_data, pheno_data, sites_and_years)
+  site_data <- format_site_data(temp_data, pheno_data, sites_and_years, forecast_temp_data)
   site_data$N_site_years <- nrow(sites_and_years)
   
   if (plot_temp) {
