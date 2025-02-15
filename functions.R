@@ -88,6 +88,7 @@ pull_daily_temperature_data <- function(locations_df, out_file, max_date, min_da
       temp <- get_temperature(loc, date_min, date_max)
       temp$location <- row[,'location']
       temp$timestamp_run <- Sys.time()
+
       
       if(!file.exists(out_file)) {
         print('creating temperature file...')
@@ -199,7 +200,6 @@ get_temperature <- function (loc, date_min, date_max) {
   
   temp
 }
-
 
 get_forecasted_temperature <- function(loc, date_min, date_max, models=NA) {
   if (is.na(models)) {
@@ -557,7 +557,9 @@ prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_in
                "temp_data_df" = temp_data,
                "pheno_data_df" = pheno_data,
                "sites_and_years_df" = sites_and_years,
-               "pheno_data_prior_df" = pheno_data_no_temp
+               "pheno_data_prior_df" = pheno_data_no_temp,
+               "temp_data_predict_df" = temp_data_predict,
+               "forecast_temp_data_df" = forecast_temp_data
   )
   
   return(data)
