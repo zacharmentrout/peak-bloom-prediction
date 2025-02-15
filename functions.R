@@ -367,8 +367,22 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_y
   }
   
   N_events_predict <- rep(1, length.out=length(unique(site_temp_data$location)))
-
-  list("N_days" = N_days, 
+  
+  
+  # find common obs and forecasted temps
+  forecast_prediction_start_date <- as.Date(max(site_temp_data_predict$date))+1
+  obs_temp_w_forecast <- merge(site_temp_data[,c('location', 'date', 'value')], site_forecast_temp_data, by=c('location', 'date'),all=F, suffixes = c("_obs", "_forecast"))
+  pred_temp_w_forecast <- merge(site_temp_data_predict[,c('location', 'date', 'value')], site_forecast_temp_data, by=c('location', 'date'),all=F, suffixes = c("_obs", "_forecast"))
+  
+  forecast_mean_w_obs_temp <- obs_temp_w_forecast$value_forecast[,'mean']
+  forecast_sd_w_obs_temp <- obs_temp_w_forecast$value_forecast[,'sd']
+  obs_temp_w_forecast <- obs_temp_w_forecast$value_obs
+  
+  forecast_mean_w_pred_temp <- pred_temp_w_forecast$value_forecast[,'mean']
+  forecast_sd_w_pred_temp <- pred_temp_w_forecast$value_forecast[,'sd']
+  pred_temp_w_forecast <- pred_temp_w_forecast$value_obs
+  
+   list("N_days" = N_days, 
        "temp_start_idxs" = temp_start_idxs, "temp_end_idxs" = temp_end_idxs,
        "obs_temp" = obs_temp,
        "N_events" = N_events,
@@ -379,7 +393,18 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_y
        "temp_start_idxs_predict" = temp_start_idxs_predict, "temp_end_idxs_predict" = temp_end_idxs_predict,
        "obs_temp_predict" = obs_temp_predict,
        "N_events_predict" = N_events_predict,
-       "N_site_years_predict" = N_site_years_predict
+       "N_site_years_predict" = N_site_years_predict,
+
+       # for modeling forecasts
+       "obs_temp_w_forecast" = obs_temp_w_forecast,
+       "pred_temp_w_forecast" = pred_temp_w_forecast,
+       "forecast_mean_w_obs_temp" = forecast_mean_w_obs_temp,
+       "forecast_sd_w_obs_temp" = forecast_sd_w_obs_temp,
+       "obs_temp_w_forecast" = obs_temp_w_forecast,
+       
+       "forecast_mean_w_pred_temp" = forecast_mean_w_pred_temp,
+       "forecast_sd_w_pred_temp" = forecast_sd_w_pred_temp,
+       "pred_temp_w_forecast" = pred_temp_w_forecast 
   )
 }
 
@@ -470,11 +495,16 @@ prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_in
   unique_forecast_temp_dates <- sort(unique(forecast_temp_data$date))
   map_forecast_temp_dates_to_year <- data.frame(date=as.Date(unique_forecast_temp_dates), year=sapply(unique_forecast_temp_dates, function(d) {unique(
     pheno_data$year[pheno_data$bloom_cycle_start_date <= d & d <= pheno_data$bloom_cycle_end_date])[1]}))
+  
+  for (k in which(is.na(map_forecast_temp_dates_to_year$year))) {
+    year_k <- as.integer(format(as.Date(map_forecast_temp_dates_to_year$date[k]), "%Y"))
+    if (year_k >= 2024)
+    { map_forecast_temp_dates_to_year$year[k] <- 2025 }
+  }
+  
+  
   forecast_temp_data <- merge(forecast_temp_data, map_forecast_temp_dates_to_year, by='date', all.x=T, all.y=F)
-  forecast_temp_data <- forecast_temp_data[forecast_temp_data$year %in% years,]
   forecast_temp_data <- forecast_temp_data[,c('year_init', 'year', 'month', 'dom', 'value', 'day', 'location', 'date')]  
-  
-  
   
   # Order temp and pheno data
   temp_data <- temp_data[order(temp_data$location, temp_data$date),]
