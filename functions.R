@@ -267,7 +267,7 @@ logit <- function(x, x0=0, k=1) {
 
 
 # Concatenate ragged site-year data into a single array 
-format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_forecast_temp_data) {
+format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_years_predict, site_temp_data_predict, site_forecast_temp_data) {
   N_site_years <- nrow(site_years)
   
   max_chill_days <- max(site_pheno_data$startdate)
@@ -299,6 +299,37 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_f
     
     obs_temp[start_idx:end_idx] <- 
       site_temp_data$value[site_temp_data$year == site_years[n,2] & site_temp_data$location == site_years[n,1]]
+  }
+  
+  # observed temperatures for prediction
+  N_site_years_predict <- nrow(site_years_predict)
+  
+  N_days_predict <- sapply(1:nrow(site_years_predict), 
+                   function(d) length(site_temp_data_predict$day[site_temp_data_predict$year == site_years_predict[d,2] & site_temp_data_predict$location == site_years_predict[d,1]]))
+  
+  temp_start_idxs_predict <- rep(1, N_site_years_predict)
+  temp_end_idxs_predict <- rep(1, N_site_years_predict)
+  
+  N_obs_temp_predict <- sum(N_days_predict)
+  obs_temp_predict <- rep(NA, N_obs_temp_predict)
+  
+  start_idx_predict <- 1
+  end_idx_predict <- start_idx_predict + N_days_predict[1] - 1
+  
+  temp_start_idxs_predict[1] <- start_idx_predict
+  temp_end_idxs_predict[1] <- end_idx_predict
+  obs_temp_predict[start_idx_predict:end_idx_predict] <- 
+    site_temp_data_predict$value[site_temp_data_predict$year == site_years_predict[1,2] & site_temp_data_predict$location == site_years_predict[1,1]]
+  
+  for (n in 2:N_site_years_predict) {
+    start_idx_predict <- temp_end_idxs_predict[n - 1] + 1
+    end_idx_predict <- start_idx_predict + N_days_predict[n] - 1
+    
+    temp_start_idxs_predict[n] <- start_idx_predict
+    temp_end_idxs_predict[n] <- end_idx_predict
+    
+    obs_temp_predict[start_idx_predict:end_idx_predict] <- 
+      site_temp_data_predict$value[site_temp_data_predict$year == site_years_predict[n,2] & site_temp_data_predict$location == site_years_predict[n,1]]
   }
   
   # Concatenate ragged event data into a monolithic array.
@@ -335,13 +366,20 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_f
       site_pheno_data$doy[site_pheno_data$year == site_years[n,2] & site_pheno_data$location == site_years[n,1]]
   }
   
+  N_events_predict <- rep(1, length.out=length(unique(site_temp_data$location)))
+
   list("N_days" = N_days, 
        "temp_start_idxs" = temp_start_idxs, "temp_end_idxs" = temp_end_idxs,
        "obs_temp" = obs_temp,
        "N_events" = N_events,
        "event_start_idxs" = event_start_idxs, "event_end_idxs" = event_end_idxs,
        "precursor_events" = precursor_events, "events" = events,
-       "max_chill_days" = max_chill_days
+       "max_chill_days" = max_chill_days,
+       "N_days_predict" = N_days_predict,
+       "temp_start_idxs_predict" = temp_start_idxs_predict, "temp_end_idxs_predict" = temp_end_idxs_predict,
+       "obs_temp_predict" = obs_temp_predict,
+       "N_events_predict" = N_events_predict,
+       "N_site_years_predict" = N_site_years_predict
   )
 }
 
@@ -403,7 +441,21 @@ prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_in
   unique_temp_dates <- sort(unique(temp_data$date))
   map_temp_dates_to_year <- data.frame(date=as.Date(unique_temp_dates), year=sapply(unique_temp_dates, function(d) {unique(
     pheno_data$year[pheno_data$bloom_cycle_start_date <= d & d <= pheno_data$bloom_cycle_end_date])[1]}))
-  temp_data <- merge(temp_data, map_temp_dates_to_year, by='date', all.x=T, all.y=F)
+  
+  for (k in which(is.na(map_temp_dates_to_year$year))) {
+    year_k <- as.integer(format(as.Date(map_temp_dates_to_year$date[k]), "%Y"))
+    if (year_k >= 2024)
+      { map_temp_dates_to_year$year[k] <- 2025 }
+  }
+  map_temp_dates_to_year <- na.omit(map_temp_dates_to_year)
+  
+  # prediction year temps
+  temp_data_predict <- merge(temp_data, map_temp_dates_to_year[map_temp_dates_to_year$year == 2025,], by='date', all.x=F, all.y=F)
+  temp_data_predict <- temp_data_predict[temp_data_predict$year == 2025,] 
+  temp_data_predict <- temp_data_predict[,c('year_init', 'year', 'month', 'dom', 'value', 'day', 'location', 'date')]
+  
+  # historical bloom year temps
+  temp_data <- merge(temp_data, map_temp_dates_to_year[map_temp_dates_to_year$year < 2025,], by='date', all.x=T, all.y=F)
   temp_data <- temp_data[temp_data$year %in% years,]
   temp_data <- temp_data[,c('year_init', 'year', 'month', 'dom', 'value', 'day', 'location', 'date')]
   
@@ -426,6 +478,7 @@ prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_in
   
   # Order temp and pheno data
   temp_data <- temp_data[order(temp_data$location, temp_data$date),]
+  temp_data_predict <- temp_data_predict[order(temp_data_predict$location, temp_data_predict$date),]
   forecast_temp_data <- forecast_temp_data[order(forecast_temp_data$location, forecast_temp_data$date),]
   pheno_data <- pheno_data[order(pheno_data$location, pheno_data$year),]
 
@@ -433,8 +486,15 @@ prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_in
   sites_and_years <- unique(pheno_data[,c('location', 'year')])
   sites_and_years <- sites_and_years[order(sites_and_years$location, sites_and_years$year),]
   
+  sites_and_years_predict <- unique(temp_data_predict[,c('location', 'year')])
+  
   # Concatenate yearly data.
-  site_data <- format_site_data(temp_data, pheno_data, sites_and_years, forecast_temp_data)
+  site_data <- format_site_data(site_temp_data = temp_data,
+                                site_pheno_data = pheno_data,
+                                site_years =  sites_and_years,
+                                site_years_predict = sites_and_years_predict,
+                                site_temp_data_predict = temp_data_predict,
+                                site_forecast_temp_data = forecast_temp_data)
   site_data$N_site_years <- nrow(sites_and_years)
   
   if (plot_temp) {
@@ -486,6 +546,13 @@ prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_in
                "events" = site_data$events,
                "event_start_idxs" = site_data$event_start_idxs,
                "event_end_idxs" = site_data$event_end_idxs,
+               "N_site_years_predict" = site_data$N_site_years_predict,
+               "N_obs_temps_predict" = length(site_data$obs_temp_predict),
+               "obs_temps_predict" = site_data$obs_temp_predict,
+               "temp_start_idxs_predict" = site_data$temp_start_idxs_predict,
+               "temp_end_idxs_predict" = site_data$temp_end_idxs_predict,
+               "N_days_predict" = site_data$N_days_predict,
+               "N_predict" = length(site_data$N_days_predict),
                "D" = site_data$max_chill_days,
                "temp_data_df" = temp_data,
                "pheno_data_df" = pheno_data,
