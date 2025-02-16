@@ -34,7 +34,7 @@ locations_init <- base_list$locations_init
 
 # locations_init$max_temp_date <- '2025-02-04'
 
-util$pull_daily_temperature_data(locations_init, out_file = 'data/daily_temperature.csv', max_date = '2025-02-04', min_date='2025-02-04', write_to_file = T)
+util$pull_daily_temperature_data(locations_init, out_file = 'data/daily_temperature.csv', max_date = '2025-02-14', min_date='2025-02-04', write_to_file = F)
 util$pull_forecasted_temperature_data(locations_init, out_file = 'data/daily_forecasted_temperature.csv', min_date = NA, max_date = '2025-06-01', write_to_file = F)
 
 daily_temp_init <- read.csv('data/daily_temperature.csv')
@@ -50,7 +50,7 @@ daily_forecast_temp <- daily_forecast_temp[!duplicated(daily_forecast_temp$id), 
 daily_forecast_temp_means <- aggregate(daily_temperature_2m_mean ~ date+location, data = daily_forecast_temp_init, function(x) c(mean = mean(x), sd = sd(x)))
 
 
-mod_data <- util$prep_mod_data(pheno_data_init = d_init, temp_data_init = daily_temp,  forecast_temp_data_init = daily_forecast_temp_means, plot_temp = F)
+mod_data <- util$prep_mod_data(pheno_data_init = d_init, temp_data_init = daily_temp,  forecast_temp_data_init = daily_forecast_temp_means, plot_temp = F, plot_forecast_temp = T)
 ```
 
 ```{r}

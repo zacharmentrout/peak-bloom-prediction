@@ -405,7 +405,7 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_y
   obs_temp_w_forecast_df <- merge(site_temp_data[,c('location', 'date', 'value')], site_forecast_temp_data, by=c('location', 'date'),all=F, suffixes = c("_obs", "_forecast"))
   pred_temp_w_forecast_df <- merge(site_temp_data_predict[,c('location', 'date', 'value')], site_forecast_temp_data, by=c('location', 'date'),all=F, suffixes = c("_obs", "_forecast"))
   forecast_w_no_obs_temp_df <- merge(site_temp_data_predict[,c('location', 'date', 'value')], site_forecast_temp_data, by=c('location', 'date'),all.x=F, all.y=T, suffixes = c("_obs", "_forecast"))
-  forecast_w_no_obs_temp_df <- forecast_w_no_obs_temp[is.na(forecast_w_no_obs_temp$value_obs) & forecast_w_no_obs_temp$date >= forecast_prediction_start_date,]
+  forecast_w_no_obs_temp_df <- forecast_w_no_obs_temp_df[is.na(forecast_w_no_obs_temp_df$value_obs) & forecast_w_no_obs_temp_df$date >= forecast_prediction_start_date,]
   
   
   
@@ -430,7 +430,7 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_y
   N_site_years_predict_forecast <- nrow(site_years_predict)
   
   N_days_predict_forecast <- sapply(1:nrow(site_years_predict), 
-                           function(d) length(forecast_w_no_obs_temp$day[forecast_w_no_obs_temp$year == site_years_predict[d,2] & forecast_w_no_obs_temp$location == site_years_predict[d,1]]))
+                           function(d) length(forecast_w_no_obs_temp_df$day[forecast_w_no_obs_temp_df$year == site_years_predict[d,2] & forecast_w_no_obs_temp_df$location == site_years_predict[d,1]]))
   
   temp_start_idxs_predict_forecast <- rep(1, N_site_years_predict_forecast)
   temp_end_idxs_predict_forecast <- rep(1, N_site_years_predict_forecast)
@@ -648,7 +648,7 @@ prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_in
   
   if (plot_forecast_temp) {
     # Visualize data.
-    tlim <- range(site_data$pred_temp_w_forecast,
+    tlim <- range(
                   site_data$forecast_mean_w_obs_temp + 2*site_data$forecast_sd_w_obs_temp,
                   site_data$forecast_mean_w_obs_temp - 2*site_data$forecast_sd_w_obs_temp,
                   site_data$forecast_mean_w_no_obs_temp + 2*site_data$forecast_sd_w_no_obs_temp,
