@@ -301,7 +301,38 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_y
       site_temp_data$value[site_temp_data$year == site_years[n,2] & site_temp_data$location == site_years[n,1]]
   }
   
-  # observed temperatures for prediction
+  # observed temperatures for prediction (no historical event)
+  N_site_years_predict <- nrow(site_years_predict)
+  
+  N_days_predict <- sapply(1:nrow(site_years_predict), 
+                   function(d) length(site_temp_data_predict$day[site_temp_data_predict$year == site_years_predict[d,2] & site_temp_data_predict$location == site_years_predict[d,1]]))
+  
+  temp_start_idxs_predict <- rep(1, N_site_years_predict)
+  temp_end_idxs_predict <- rep(1, N_site_years_predict)
+  
+  N_obs_temp_predict <- sum(N_days_predict)
+  obs_temp_predict <- rep(NA, N_obs_temp_predict)
+  
+  start_idx_predict <- 1
+  end_idx_predict <- start_idx_predict + N_days_predict[1] - 1
+  
+  temp_start_idxs_predict[1] <- start_idx_predict
+  temp_end_idxs_predict[1] <- end_idx_predict
+  obs_temp_predict[start_idx_predict:end_idx_predict] <- 
+    site_temp_data_predict$value[site_temp_data_predict$year == site_years_predict[1,2] & site_temp_data_predict$location == site_years_predict[1,1]]
+  
+  for (n in 2:N_site_years_predict) {
+    start_idx_predict <- temp_end_idxs_predict[n - 1] + 1
+    end_idx_predict <- start_idx_predict + N_days_predict[n] - 1
+    
+    temp_start_idxs_predict[n] <- start_idx_predict
+    temp_end_idxs_predict[n] <- end_idx_predict
+    
+    obs_temp_predict[start_idx_predict:end_idx_predict] <- 
+      site_temp_data_predict$value[site_temp_data_predict$year == site_years_predict[n,2] & site_temp_data_predict$location == site_years_predict[n,1]]
+  }
+  
+  # observed temperatures for prediction (no historical event)
   N_site_years_predict <- nrow(site_years_predict)
   
   N_days_predict <- sapply(1:nrow(site_years_predict), 
@@ -371,17 +402,56 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_y
   
   # find common obs and forecasted temps
   forecast_prediction_start_date <- as.Date(max(site_temp_data_predict$date))+1
-  obs_temp_w_forecast <- merge(site_temp_data[,c('location', 'date', 'value')], site_forecast_temp_data, by=c('location', 'date'),all=F, suffixes = c("_obs", "_forecast"))
-  pred_temp_w_forecast <- merge(site_temp_data_predict[,c('location', 'date', 'value')], site_forecast_temp_data, by=c('location', 'date'),all=F, suffixes = c("_obs", "_forecast"))
+  obs_temp_w_forecast_df <- merge(site_temp_data[,c('location', 'date', 'value')], site_forecast_temp_data, by=c('location', 'date'),all=F, suffixes = c("_obs", "_forecast"))
+  pred_temp_w_forecast_df <- merge(site_temp_data_predict[,c('location', 'date', 'value')], site_forecast_temp_data, by=c('location', 'date'),all=F, suffixes = c("_obs", "_forecast"))
+  forecast_w_no_obs_temp_df <- merge(site_temp_data_predict[,c('location', 'date', 'value')], site_forecast_temp_data, by=c('location', 'date'),all.x=F, all.y=T, suffixes = c("_obs", "_forecast"))
+  forecast_w_no_obs_temp_df <- forecast_w_no_obs_temp[is.na(forecast_w_no_obs_temp$value_obs) & forecast_w_no_obs_temp$date >= forecast_prediction_start_date,]
   
-  forecast_mean_w_obs_temp <- obs_temp_w_forecast$value_forecast[,'mean']
-  forecast_sd_w_obs_temp <- obs_temp_w_forecast$value_forecast[,'sd']
-  obs_temp_w_forecast <- obs_temp_w_forecast$value_obs
   
-  forecast_mean_w_pred_temp <- pred_temp_w_forecast$value_forecast[,'mean']
-  forecast_sd_w_pred_temp <- pred_temp_w_forecast$value_forecast[,'sd']
-  pred_temp_w_forecast <- pred_temp_w_forecast$value_obs
   
+  # historical obs temps and forecasts with events
+  forecast_mean_w_obs_temp <- obs_temp_w_forecast_df$value_forecast[,'mean']
+  forecast_sd_w_obs_temp <- obs_temp_w_forecast_df$value_forecast[,'sd']
+  obs_temp_w_forecast <- obs_temp_w_forecast_df$value_obs
+  
+  # historical obs temps and forecasts NO events
+  forecast_mean_w_pred_temp <- pred_temp_w_forecast_df$value_forecast[,'mean']
+  forecast_sd_w_pred_temp <- pred_temp_w_forecast_df$value_forecast[,'sd']
+  pred_temp_w_forecast <- pred_temp_w_forecast_df$value_obs
+  
+  # forecasts NO events or observed temps
+  forecast_mean_w_no_obs_temp <- forecast_w_no_obs_temp_df$value_forecast[,'mean']
+  forecast_sd_w_no_obs_temp <- forecast_w_no_obs_temp_df$value_forecast[,'sd']
+
+  
+  
+  # get forecast indices
+  # forecasts for prediction (NO historical event + NO obs temp)
+  N_site_years_predict_forecast <- nrow(site_years_predict)
+  
+  N_days_predict_forecast <- sapply(1:nrow(site_years_predict), 
+                           function(d) length(forecast_w_no_obs_temp$day[forecast_w_no_obs_temp$year == site_years_predict[d,2] & forecast_w_no_obs_temp$location == site_years_predict[d,1]]))
+  
+  temp_start_idxs_predict_forecast <- rep(1, N_site_years_predict_forecast)
+  temp_end_idxs_predict_forecast <- rep(1, N_site_years_predict_forecast)
+  
+  N_forecast_temp_predict <- sum(N_days_predict_forecast)
+  forecast_temp_predict <- rep(NA, N_forecast_temp_predict)
+  
+  start_idx_predict_forecast <- 1
+  end_idx_predict_forecast <- start_idx_predict_forecast + N_days_predict_forecast[1] - 1
+  
+  temp_start_idxs_predict_forecast[1] <- start_idx_predict_forecast
+  temp_end_idxs_predict_forecast[1] <- end_idx_predict_forecast
+
+  for (n in 2:N_site_years_predict_forecast) {
+    start_idx_predict_forecast <- temp_end_idxs_predict_forecast[n - 1] + 1
+    end_idx_predict_forecast <- start_idx_predict_forecast + N_days_predict_forecast[n] - 1
+    
+    temp_start_idxs_predict_forecast[n] <- start_idx_predict_forecast
+    temp_end_idxs_predict_forecast[n] <- end_idx_predict_forecast
+   }
+
    list("N_days" = N_days, 
        "temp_start_idxs" = temp_start_idxs, "temp_end_idxs" = temp_end_idxs,
        "obs_temp" = obs_temp,
@@ -394,17 +464,31 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_y
        "obs_temp_predict" = obs_temp_predict,
        "N_events_predict" = N_events_predict,
        "N_site_years_predict" = N_site_years_predict,
+       "N_site_years_predict_forecast" = N_site_years_predict_forecast,
 
-       # for modeling forecasts
-       "obs_temp_w_forecast" = obs_temp_w_forecast,
-       "pred_temp_w_forecast" = pred_temp_w_forecast,
-       "forecast_mean_w_obs_temp" = forecast_mean_w_obs_temp,
+       # historical obs temps and forecasts with events
+       "obs_temp_w_forecast" = obs_temp_w_forecast, # historical observed temps with forecast
+       "pred_temp_w_forecast" = pred_temp_w_forecast, # historical observed temp for prediction (no event) with forecast
+       "forecast_mean_w_obs_temp" = forecast_mean_w_obs_temp, 
        "forecast_sd_w_obs_temp" = forecast_sd_w_obs_temp,
        "obs_temp_w_forecast" = obs_temp_w_forecast,
        
+       # historical obs temps and forecasts NO events
        "forecast_mean_w_pred_temp" = forecast_mean_w_pred_temp,
        "forecast_sd_w_pred_temp" = forecast_sd_w_pred_temp,
-       "pred_temp_w_forecast" = pred_temp_w_forecast 
+       "pred_temp_w_forecast" = pred_temp_w_forecast ,
+       
+       # forecasts NO events or observed temps
+       "forecast_mean_w_no_obs_temp" = forecast_mean_w_no_obs_temp,
+       "forecast_sd_w_no_obs_temp" = forecast_sd_w_no_obs_temp,
+       "N_forecast_temp_predict" =   N_forecast_temp_predict,
+       "temp_start_idxs_predict_forecast" = temp_start_idxs_predict_forecast,
+       "temp_end_idxs_predict_forecast" = temp_end_idxs_predict_forecast,
+       "N_days_predict_forecast" = N_days_predict_forecast,
+       
+       "obs_temp_w_forecast_df" = obs_temp_w_forecast_df,
+       "pred_temp_w_forecast_df" = pred_temp_w_forecast_df,
+       "forecast_w_no_obs_temp_df" = forecast_w_no_obs_temp_df
   )
 }
 
@@ -433,7 +517,7 @@ plot_realizations <- function(xs, fs, name="",
     lines(xs, fs[plot_idx[j],], col=line_colors[j], lwd=2)
 }
 
-prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_init, plot_temp=F) {
+prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_init, plot_temp=F, plot_forecast_temp=F) {
   
   years <- 1940:2024
   years <- years[(years - 1) %in% years]
@@ -559,6 +643,51 @@ prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_in
         lines(c(x1, x2), c(y, y), lwd=2, col=c_mid_teal)
         lines(c(x2, x2), c(y - 0.5, y + 0.5), lwd=2, col=c_mid_teal)
       }
+    }
+  }
+  
+  if (plot_forecast_temp) {
+    # Visualize data.
+    tlim <- range(site_data$pred_temp_w_forecast,
+                  site_data$forecast_mean_w_obs_temp + 2*site_data$forecast_sd_w_obs_temp,
+                  site_data$forecast_mean_w_obs_temp - 2*site_data$forecast_sd_w_obs_temp,
+                  site_data$forecast_mean_w_no_obs_temp + 2*site_data$forecast_sd_w_no_obs_temp,
+                  site_data$forecast_mean_w_no_obs_temp - 2*site_data$forecast_sd_w_no_obs_temp
+                  )
+    # xlim <- c(min(site_data$precursor_events) - 5, max(site_data$events) + 5)
+    xlim <- c(1, 366)
+    
+    par(mfrow=c(2, 2))
+    
+    forecast_comparison_df <- rbind(site_data$obs_temp_w_forecast_df, site_data$pred_temp_w_forecast_df)
+    
+    sites_years_forecast_comparison <- unique(forecast_comparison_df[,c('location', 'year')])
+    for (n in 1:nrow(sites_years_forecast_comparison)) {
+      local_temps <- forecast_comparison_df[forecast_comparison_df$location == sites_years_forecast_comparison$location[n] & 
+                                              forecast_comparison_df$year == sites_years_forecast_comparison$year[n],]
+      
+      title <- paste0("Site: ",  sites_years_forecast_comparison$location[n], ", Year: ", sites_years_forecast_comparison$year[n])
+      
+      plot(1:nrow(local_temps), main=title,
+           col="black", pch=16, cex=0.75, 
+           xlim=xlim, xlab="Day", ylim=tlim, ylab="Recorded Temperature (C)", type='n')
+      
+      # Draw the polygon (shaded confidence region)
+      polygon(c(1:nrow(local_temps), rev(1:nrow(local_temps))),
+              c(local_temps$value_forecast[,'mean'] + 2 * local_temps$value_forecast[,'sd'],
+                rev(local_temps$value_forecast[,'mean'] - 2 * local_temps$value_forecast[,'sd'])),
+              col = c_light, border = NA)
+      
+      lines(1:nrow(local_temps), local_temps$value_forecast[,'mean'], main=title,
+            col=c_mid, pch=16, lwd=3, 
+            xlim=xlim, xlab="Day", ylim=tlim)
+      
+      
+      points(1:nrow(local_temps), local_temps$value_obs, main=title,
+           type="p", col="black", pch=16, cex=0.75, 
+           xlim=xlim, xlab="Day", ylim=tlim, ylab="Recorded Temperature (C)")
+ 
+      
     }
   }
  
