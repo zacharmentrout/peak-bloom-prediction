@@ -399,6 +399,7 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_y
   
   N_events_predict <- rep(1, length.out=length(unique(site_temp_data$location)))
   
+  precursor_events_predict <- rep(min(precursor_events), length.out=N_site_years_predict)
   
   # find common obs and forecasted temps
   forecast_prediction_start_date <- as.Date(max(site_temp_data_predict$date))+1
@@ -472,11 +473,13 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_y
        "forecast_mean_w_obs_temp" = forecast_mean_w_obs_temp, 
        "forecast_sd_w_obs_temp" = forecast_sd_w_obs_temp,
        "obs_temp_w_forecast" = obs_temp_w_forecast,
+       "N_obs_temp_w_forecast" = length(obs_temp_w_forecast),
        
        # historical obs temps and forecasts NO events
        "forecast_mean_w_pred_temp" = forecast_mean_w_pred_temp,
        "forecast_sd_w_pred_temp" = forecast_sd_w_pred_temp,
        "pred_temp_w_forecast" = pred_temp_w_forecast ,
+       "N_pred_temp_w_forecast" = length(pred_temp_w_forecast),
        
        # forecasts NO events or observed temps
        "forecast_mean_w_no_obs_temp" = forecast_mean_w_no_obs_temp,
@@ -488,7 +491,9 @@ format_site_data <- function(site_temp_data, site_pheno_data, site_years, site_y
        
        "obs_temp_w_forecast_df" = obs_temp_w_forecast_df,
        "pred_temp_w_forecast_df" = pred_temp_w_forecast_df,
-       "forecast_w_no_obs_temp_df" = forecast_w_no_obs_temp_df
+       "forecast_w_no_obs_temp_df" = forecast_w_no_obs_temp_df,
+       
+       "precursor_events_predict" = precursor_events_predict
   )
 }
 
@@ -684,7 +689,7 @@ prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_in
       
       
       points(1:nrow(local_temps), local_temps$value_obs, main=title,
-           type="p", col="black", pch=16, cex=0.75, 
+           type="p", col="black", pch=16, cex=0.5, 
            xlim=xlim, xlab="Day", ylim=tlim, ylab="Recorded Temperature (C)")
  
       
@@ -716,9 +721,37 @@ prep_mod_data <- function(pheno_data_init, temp_data_init, forecast_temp_data_in
                "temp_data_df" = temp_data,
                "pheno_data_df" = pheno_data,
                "sites_and_years_df" = sites_and_years,
+               "sites_and_years_predict_df" = sites_and_years_predict,
                "pheno_data_prior_df" = pheno_data_no_temp,
                "temp_data_predict_df" = temp_data_predict,
-               "forecast_temp_data_df" = forecast_temp_data
+               "forecast_temp_data_df" = forecast_temp_data,
+               
+               # historical obs temps and forecasts with events
+               "obs_temp_w_forecast" = site_data$obs_temp_w_forecast, # historical observed temps with forecast
+               "pred_temp_w_forecast" = site_data$pred_temp_w_forecast, # historical observed temp for prediction (no event) with forecast
+               "forecast_mean_w_obs_temp" = site_data$forecast_mean_w_obs_temp, 
+               "forecast_sd_w_obs_temp" = site_data$forecast_sd_w_obs_temp,
+               "obs_temp_w_forecast" = site_data$obs_temp_w_forecast,
+               "N_obs_temp_w_forecast" = site_data$N_obs_temp_w_forecast,
+               
+               # historical obs temps and forecasts NO events
+               "forecast_mean_w_pred_temp" = site_data$forecast_mean_w_pred_temp,
+               "forecast_sd_w_pred_temp" = site_data$forecast_sd_w_pred_temp,
+               "pred_temp_w_forecast" = site_data$pred_temp_w_forecast ,
+               "N_pred_temp_w_forecast" = site_data$N_pred_temp_w_forecast,
+               
+               # forecasts NO events or observed temps
+               "forecast_mean_w_no_obs_temp" = site_data$forecast_mean_w_no_obs_temp,
+               "forecast_sd_w_no_obs_temp" = site_data$forecast_sd_w_no_obs_temp,
+               "N_forecast_temp_predict" =   site_data$N_forecast_temp_predict,
+               "temp_start_idxs_predict_forecast" = site_data$temp_start_idxs_predict_forecast,
+               "temp_end_idxs_predict_forecast" = site_data$temp_end_idxs_predict_forecast,
+               "N_days_predict_forecast" = site_data$N_days_predict_forecast,
+               
+               "obs_temp_w_forecast_df" = site_data$obs_temp_w_forecast_df,
+               "pred_temp_w_forecast_df" = site_data$pred_temp_w_forecast_df,
+               "forecast_w_no_obs_temp_df" = site_data$forecast_w_no_obs_temp_df,
+               "precursor_events_predict" = site_data$precursor_events_predict
   )
   
   return(data)

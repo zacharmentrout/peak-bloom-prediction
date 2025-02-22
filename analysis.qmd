@@ -34,7 +34,7 @@ locations_init <- base_list$locations_init
 
 # locations_init$max_temp_date <- '2025-02-04'
 
-util$pull_daily_temperature_data(locations_init, out_file = 'data/daily_temperature.csv', max_date = '2025-02-14', min_date='2025-02-04', write_to_file = F)
+util$pull_daily_temperature_data(locations_init, out_file = 'data/daily_temperature.csv', max_date = '2025-02-14', min_date='2025-02-03', write_to_file = F)
 util$pull_forecasted_temperature_data(locations_init, out_file = 'data/daily_forecasted_temperature.csv', min_date = NA, max_date = '2025-06-01', write_to_file = F)
 
 daily_temp_init <- read.csv('data/daily_temperature.csv')
