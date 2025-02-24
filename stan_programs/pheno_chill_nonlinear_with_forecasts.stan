@@ -67,8 +67,43 @@ data {
   real<lower=0> sd_sigma;
   
   real<lower=0> x0_chill_days;
+
+
+  // temp forecasting
+  real mean_delta;
+  real sd_delta;
+  real<lower=0> sd_tau;
   
-  // real Z_chill_fixed; 
+  // event prediction
+  int<lower=1> N_site_years_predict; // Number of year-site instances to predict
+  
+  int precursor_events_predict[N_site_years_predict];
+  
+  // predict temps (observed)
+  int<lower=1> N_obs_temps_predict; // observed temps
+  real obs_temps_predict[N_obs_temps_predict]; // Recorded temperature (C) for each day
+  int<lower=1, upper=N_obs_temps_predict> temp_start_idxs_predict[N_site_years_predict];
+  int<lower=1> N_days_predict[N_site_years_predict];
+  
+  // predict temps (forecast)
+  int<lower=1> N_forecast_temp_predict; // unobserved temps
+  real forecast_mean_w_no_obs_temp[N_forecast_temp_predict]; 
+  real forecast_sd_w_no_obs_temp[N_forecast_temp_predict]; 
+  int<lower=1, upper=N_forecast_temp_predict> temp_start_idxs_predict_forecast[N_site_years_predict];
+  int<lower=1> N_days_predict_forecast[N_site_years_predict];
+  
+  // all obs temps for historical events with forecast
+  int<lower=1> N_obs_temp_w_forecast; // unobserved temps
+  real obs_temp_w_forecast[N_obs_temp_w_forecast];
+  real forecast_mean_w_obs_temp[N_obs_temp_w_forecast]; 
+  real forecast_sd_w_obs_temp[N_obs_temp_w_forecast]; 
+  
+  // all obs temps for predict events with forecast
+  int<lower=1> N_pred_temp_w_forecast; // unobserved temps
+  real pred_temp_w_forecast[N_pred_temp_w_forecast];
+  real forecast_mean_w_pred_temp[N_pred_temp_w_forecast]; 
+  real forecast_sd_w_pred_temp[N_pred_temp_w_forecast]; 
+
 }
 
 parameters {
@@ -82,8 +117,8 @@ parameters {
   
 
   // Temperature model priors
-  delta ~ normal(0, 2); // mean forecast bias
-  tau ~ normal(0, 2); // baseline forecast sd (independent of forecast ensemble uncertainty)
+  real delta; // mean forecast bias
+  real<lower=0> tau; // baseline forecast sd (independent of forecast ensemble uncertainty)
 }
 
 model {
@@ -95,7 +130,31 @@ model {
   beta2 ~ normal(mean_beta2, sd_beta2);
   sigma ~ normal(0, sd_sigma);     // 0   <~ sigma (FU) <~ 10
   
+  delta ~ normal(mean_delta, sd_delta);
+  tau ~ normal(0, sd_tau);
+
+
+  // obs temp w/ forecast
+  // for (i in 1:N_obs_temp_w_forecast) {
+  //   target += normal_lpdf(obs_temp_w_forecast[i] | delta + forecast_mean_w_obs_temp[i], sqrt(tau^2 + forecast_sd_w_obs_temp[i]^2));
+  // }
+  // 
+  // // pred (obs.) temp w/ forecast
+  // for (i in 1:N_pred_temp_w_forecast) {
+  //   target += normal_lpdf(pred_temp_w_forecast[i] | delta + forecast_mean_w_pred_temp[i], sqrt(tau^2 + forecast_sd_w_pred_temp[i]^2));
+  // }
   
+  vector[N_obs_temp_w_forecast] obs_temp_means = delta + to_vector(forecast_mean_w_obs_temp);
+  vector[N_obs_temp_w_forecast] obs_temp_sds = sqrt(tau^2 + square(to_vector(forecast_sd_w_obs_temp)));
+  target += normal_lpdf(to_vector(obs_temp_w_forecast) | obs_temp_means, obs_temp_sds);
+
+  vector[N_pred_temp_w_forecast] pred_temp_means = delta + to_vector(forecast_mean_w_pred_temp);
+  vector[N_pred_temp_w_forecast] pred_temp_sds = sqrt(tau^2 + square(to_vector(forecast_sd_w_pred_temp)));
+  target += normal_lpdf(to_vector(pred_temp_w_forecast) | pred_temp_means, pred_temp_sds);
+
+  
+  
+  // Phenology event modeling
   real k; 
   k = 1;
   
@@ -110,15 +169,17 @@ model {
     int event_start_idx = event_start_idxs[i];
     int event_end_idx = event_start_idxs[i] + N_events[i] - 1;
     
-    int local_precursor_events[N_events[i]]
-      = precursor_events[event_start_idx:event_end_idx];
-    int local_events[N_events[i]]
-      = events[event_start_idx:event_end_idx];
+    //int local_precursor_events[N_events[i]]
+    //  = precursor_events[event_start_idx:event_end_idx];
+    int local_precursor_event = precursor_events[i]; 
+    // int local_events[N_events[i]]
+    //   = events[event_start_idx:event_end_idx];
+    int local_event = events[i];
     
     // Compute needed daily forcings
     real sum_chill_days;
-    int first_precursor_event = min(local_precursor_events);
-    int last_event = max(local_events);
+    int first_precursor_event = local_precursor_event;// min(local_precursor_events);
+    int last_event = local_event; //max(local_events);
     vector[last_event] daily_forcings;
     real Psi0;
     real x_minus_x0;
@@ -140,18 +201,18 @@ model {
     
   
     // Increment density for each event
-    for(n in 1:N_events[i]) {
+    //for(n in 1:N_events[i]) {
       // Aggregated forcings during phenology interval
-      real Psi = sum(daily_forcings[local_precursor_events[n]:local_events[n]]);
-      
-      // Log of derivative of aggregated forcings
-      real log_dPsidt = log_forcing(obs_temps[local_events[n]], 
-                                    Z_forcing, k);
-      
-      // Add event density to model
-      target += logistic_lpdf(Psi | Psi0, sigma * sqrt(3) / pi()) + log_dPsidt;
+      // real Psi = sum(daily_forcings[local_precursor_events[n]:local_events[n]]);
+    real Psi = sum(daily_forcings[local_precursor_event:local_event]);
+    // Log of derivative of aggregated forcings
+    real log_dPsidt = log_forcing(obs_temps[local_event], 
+                                  Z_forcing, k);
+    
+    // Add event density to model
+    target += logistic_lpdf(Psi | Psi0, sigma * sqrt(3) / pi()) + log_dPsidt;
       //target += normal_lpdf(Psi | Psi0, sigma) + log_dPsidt;
-    }
+    //}
   }
 }
 
@@ -161,6 +222,34 @@ generated quantities {
   real k;
   k = 1;
   
+  // Temperature forecasts
+  real mod_pred_temp[N_obs_temp_w_forecast + N_pred_temp_w_forecast + N_forecast_temp_predict];
+  real mod_pred_temp_sd[N_obs_temp_w_forecast + N_pred_temp_w_forecast + N_forecast_temp_predict];
+  real mod_pred_temp_forecast[N_forecast_temp_predict];
+
+  // obs temp w/ forecast
+  for (i in 1:N_obs_temp_w_forecast) {
+    mod_pred_temp_sd[i] = sqrt(tau^2 + forecast_sd_w_obs_temp[i]^2);
+    mod_pred_temp[i] = normal_rng(delta + forecast_mean_w_obs_temp[i], mod_pred_temp_sd[i]);
+  }
+  
+  // pred (obs.) temp w/ forecast
+  for (i in 1:N_pred_temp_w_forecast) {
+    int j = i + N_obs_temp_w_forecast;
+    mod_pred_temp_sd[j] = sqrt(tau^2 + forecast_sd_w_pred_temp[i]^2);
+    mod_pred_temp[j] = normal_rng(delta + forecast_mean_w_pred_temp[i], mod_pred_temp_sd[j]);
+  }
+  
+  // forecast temp (no obs temp)
+  for (i in 1:N_forecast_temp_predict) {
+    int j = i + N_obs_temp_w_forecast + N_pred_temp_w_forecast;
+    mod_pred_temp_sd[j] = sqrt(tau^2 + forecast_sd_w_no_obs_temp[i]^2);
+    mod_pred_temp[j] = normal_rng(delta + forecast_mean_w_no_obs_temp[i], mod_pred_temp_sd[j]);
+    mod_pred_temp_forecast[i] = mod_pred_temp[j];
+  }
+  
+  
+  // Observed phenology events
   for (i in 1:N_site_years) {
     // Extract temperature data
     int temp_start_idx = temp_start_idxs[i];
@@ -172,11 +261,12 @@ generated quantities {
     int event_start_idx = event_start_idxs[i];
     int event_end_idx = event_start_idxs[i] + N_events[i] - 1;
     
-    int local_precursor_events[N_events[i]]
-      = precursor_events[event_start_idx:event_end_idx];
+    // int local_precursor_events[N_events[i]]
+    //   = precursor_events[event_start_idx:event_end_idx];
+    int local_precursor_event = precursor_events[i];
     
     // Compute needed daily forcings
-    int first_precursor_event = min(local_precursor_events);
+    int first_precursor_event = local_precursor_event; // min(local_precursor_events);
     vector[N_days[i]] daily_forcings = rep_vector(0, N_days[i]);
     vector[N_days[i]] accum_forcings;
     real sum_chill_days;
@@ -203,7 +293,7 @@ generated quantities {
     // Simulate retrodictions for observed events
     for(n in 1:N_events[i]) {
       int event_idx = event_start_idxs[i] + n - 1;
-      int precursor = local_precursor_events[n];
+      int precursor = local_precursor_event; //s[n];
       real init_forcing = accum_forcings[precursor];
       
       real l = logistic_rng(Psi0, sigma * sqrt(3) / pi());
@@ -218,4 +308,82 @@ generated quantities {
       }
     }
   }
+  
+  
+  
+  
+  
+  // Forecasts
+  int<lower=1, upper=366> pred_events_forecast[N_site_years_predict];
+  
+  for (i in 1:N_site_years_predict) {
+    //print("i = ", i);
+    // Extract temperature data
+    int temp_start_idx_predict = temp_start_idxs_predict[i];
+    int temp_end_idx_predict = temp_start_idxs_predict[i] + N_days_predict[i] - 1;
+    real local_temps_predict[N_days_predict[i]] = pred_temp_w_forecast[temp_start_idx_predict:temp_end_idx_predict];
+
+    int temp_start_idx_predict_forecast = temp_start_idxs_predict_forecast[i];
+    int temp_end_idx_predict_forecast = temp_start_idxs_predict_forecast[i] + N_days_predict_forecast[i] - 1;
+    real local_temps_predict_forecast[N_days_predict_forecast[i]] = mod_pred_temp_forecast[temp_start_idx_predict_forecast:temp_end_idx_predict_forecast];
+
+    
+    // Compute needed daily forcings
+    int first_precursor_event = precursor_events_predict[i];
+    vector[N_days_predict[i] + N_days_predict_forecast[i]] daily_forcings = rep_vector(0, N_days_predict[i] + N_days_predict_forecast[i]); // N_days[i]);
+    vector[N_days_predict[i] + N_days_predict_forecast[i]] accum_forcings = rep_vector(0, N_days_predict[i] + N_days_predict_forecast[i]);
+    real sum_chill_days;
+    
+    real Psi0;  // Phenology threshold (Forcing Units)
+    real x_minus_x0;
+
+    for (n in first_precursor_event:N_days_predict[i]) {
+      daily_forcings[n] = forcing(local_temps_predict[n], Z_forcing, k);
+    }
+    
+    for (n in 1:N_days_predict_forecast[i]) {
+      int m = n + N_days_predict[i] ;
+      daily_forcings[m] = forcing(local_temps_predict_forecast[n], Z_forcing, k);
+    }
+    
+    sum_chill_days = 0;
+
+    for (n in 1:first_precursor_event) {
+      real chill_days_n = chill_days(local_temps_predict[n], Z_chill);
+      sum_chill_days += chill_days_n;
+    }
+    
+    accum_forcings = cumulative_sum(daily_forcings);
+    
+    x_minus_x0 = (sum_chill_days - x0_chill_days);
+    
+    // threshold 
+    Psi0 = alpha + beta1*x_minus_x0 + beta2*x_minus_x0^2;
+
+    // Simulate retrodictions for observed events
+    int precursor = first_precursor_event;
+    real init_forcing = accum_forcings[precursor];
+    
+    real l = logistic_rng(Psi0, sigma * sqrt(3) / pi());
+    //real l = normal_rng(Psi0, sigma);
+    
+    pred_events_forecast[i] = N_days_predict[i] + N_days_predict_forecast[i];
+    for (d in precursor:(N_days_predict[i] + N_days_predict_forecast[i])) {
+      //print("d = ", d);
+      real Psi = accum_forcings[d] - init_forcing;
+      if (Psi >= l) {
+        pred_events_forecast[i] = d;
+        // print("Psi = ", l, " exceeded!");
+        break;
+      }
+    }
+  }
+  
+  
+  
+  
+  
+  
+  
+  
 }

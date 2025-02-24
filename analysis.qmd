@@ -20,7 +20,7 @@ c_dark_teal <- c("#1D4F4F")
 nom_colors <- c("#DCBCBC", "#C79999", "#B97C7C", "#A25050", "#8F2727", "#7C0000")
 ```
 
-## Running Code
+## Prep Data
 
 ```{r}
 
@@ -43,6 +43,7 @@ daily_temp <- daily_temp_init[order(daily_temp_init$id, daily_temp_init$timestam
 daily_temp <- daily_temp[!duplicated(daily_temp$id), ]
 
 daily_forecast_temp_init <- read.csv('data/daily_forecasted_temperature.csv')
+daily_forecast_temp_init <- daily_forecast_temp_init[daily_forecast_temp_init$date >= '2010-01-01',]
 daily_forecast_temp_init$id<- paste(daily_forecast_temp_init$date, daily_forecast_temp_init$location, daily_forecast_temp_init$model, sep = "_")  # Create a composite key
 daily_forecast_temp <- daily_forecast_temp_init[order(daily_forecast_temp_init$id, daily_forecast_temp_init$timestamp_run, decreasing = TRUE), ]
 daily_forecast_temp <- daily_forecast_temp[!duplicated(daily_forecast_temp$id), ]
@@ -50,7 +51,7 @@ daily_forecast_temp <- daily_forecast_temp[!duplicated(daily_forecast_temp$id), 
 daily_forecast_temp_means <- aggregate(daily_temperature_2m_mean ~ date+location, data = daily_forecast_temp_init, function(x) c(mean = mean(x), sd = sd(x)))
 
 
-mod_data <- util$prep_mod_data(pheno_data_init = d_init, temp_data_init = daily_temp,  forecast_temp_data_init = daily_forecast_temp_means, plot_temp = F, plot_forecast_temp = T)
+mod_data <- util$prep_mod_data(pheno_data_init = d_init, temp_data_init = daily_temp,  forecast_temp_data_init = daily_forecast_temp_means, plot_temp = F, plot_forecast_temp = F)
 ```
 
 ```{r}

@@ -127,8 +127,8 @@ util$my_quantile(mod_data$pheno_data_prior_df$doy)
 # add forecasts
 #####################################################################
 mean_delta <- 0
-sd_delta <- 10 / 2.32
-sd_tau <- 7 / 2.32
+sd_delta <- 2/2.32 # 10 / 2.32
+sd_tau <- 2/2.32#7 / 2.32
 
 mod_data$mean_delta <- mean_delta
 mod_data$sd_delta <- sd_delta
@@ -155,13 +155,33 @@ mod_surv_fit_w_forecasts_prior <- stan(file=file.path("~/Documents/git/peak-bloo
 )
 
 
+# The diagnostics for all parameter expectands are clear.
+mod_surv_samples_prior_forecast <- util$extract_expectand_vals(mod_surv_fit_w_forecasts_prior)
+names <- c('alpha', 'beta1', 'beta2', 'sigma',  "Z_forcing", "Z_chill", "delta", "tau") #c(daily_forcings_plot, daily_chill_plot)
+base_samples <- util$filter_expectands(mod_surv_samples_prior_forecast, names)
+util$check_all_expectand_diagnostics(base_samples)
+
+# Prior predictive
+par(mfrow=c(1, 1))
+pred_names <- grep('pred_events', names(mod_surv_samples_prior_forecast), value=TRUE)
+pred_forecast_names <- grep('pred_events_forecast', names(mod_surv_samples_prior_forecast), value=TRUE)
+util$plot_hist_quantiles(samples = mod_surv_samples_prior_forecast, val_name_prefix = "pred_events",bin_delta = 5, baseline_values = mod_data$pheno_data_prior_df$doy, xlab = "Phenology Event")
+util$plot_hist_quantiles(samples = mod_surv_samples_prior_forecast, val_name_prefix = "pred_events_forecast",bin_delta = 5, baseline_values = NULL, xlab = "Phenology Event")
+
+
+util$my_quantile(extract_mod_prior$pred_events)
+util$my_quantile(mod_data$pheno_data_prior_df$doy)
+
+pred_events_forecast <- as.data.frame(extract(mod_surv_fit_w_forecasts_prior, pred_forecast_names))
+hist(pred_events_forecast[,5])
+
 
 
 #####################################################################
 # test model
 #####################################################################
 
-mod_surv_fit <- stan(file=file.path("~/Documents/git/peak-bloom-prediction/stan_programs/pheno_chill_nonlinear.stan"), 
+mod_surv_fit <- stan(file=file.path("~/Documents/git/peak-bloom-prediction/stan_programs/pheno_chill_nonlinear_with_forecasts.stan"), 
                      data=mod_data, init=simu_inits, seed=8438339,
                      warmup=1500, iter=3000, control = list(adapt_delta = 0.8))#, refresh=0)
 

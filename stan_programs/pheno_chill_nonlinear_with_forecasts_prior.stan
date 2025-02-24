@@ -147,7 +147,7 @@ generated quantities {
   delta = normal_rng(mean_delta, sd_delta); 
   tau = abs(normal_rng(0, sd_tau));
   real mod_pred_temp[N_obs_temp_w_forecast + N_pred_temp_w_forecast + N_forecast_temp_predict];
-  real mod_pred_temp_sd[N_obs_temp_w_forecast + N_pred_temp_w_forecast + + N_forecast_temp_predict];
+  real mod_pred_temp_sd[N_obs_temp_w_forecast + N_pred_temp_w_forecast + N_forecast_temp_predict];
   real mod_pred_temp_forecast[N_forecast_temp_predict];
 
   // obs temp w/ forecast
@@ -164,7 +164,7 @@ generated quantities {
     mod_pred_temp[j] = normal_rng(delta + forecast_mean_w_pred_temp[i], mod_pred_temp_sd[j]);
   }
   
-  // pred (obs.) temp w/ forecast
+  // forecast temp (no obs temp)
   for (i in 1:N_forecast_temp_predict) {
     int j = i + N_obs_temp_w_forecast + N_pred_temp_w_forecast;
     mod_pred_temp_sd[j] = sqrt(tau^2 + forecast_sd_w_no_obs_temp[i]^2);

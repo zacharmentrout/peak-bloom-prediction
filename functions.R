@@ -48,13 +48,26 @@ prep_base_data <- function() {
   )
   
   # get min and max years for each location
-  locations_all <- data.table::as.data.table(d_bloom)[,j=list(
-    n=.N,
-    min_year=min(year),
-    max_year=max(year)), 
-    by=c('location', 'lat', 'long')]
-
-  locations_all <- as.data.frame(locations_all)
+  locations_all <- aggregate(
+    year ~ location + lat + long, 
+    data = d_bloom,
+    FUN = function(x) c(
+      n = length(x),
+      min_year = min(x),
+      max_year = max(x)
+    )
+  )
+  
+  # Convert the results to a more readable format
+  # (aggregate creates a matrix in the year column)
+  locations_all <- data.frame(
+    location = locations_all$location,
+    lat = locations_all$lat,
+    long = locations_all$long,
+    n = locations_all$year[,1],
+    min_year = locations_all$year[,2],
+    max_year = locations_all$year[,3]
+  )
   
   list(locations_init=locations_all, d_init=d_bloom)
   
