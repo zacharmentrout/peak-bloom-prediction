@@ -127,8 +127,8 @@ util$my_quantile(mod_data$pheno_data_prior_df$doy)
 # add forecasts
 #####################################################################
 mean_delta <- 0
-sd_delta <- 2/2.32 # 10 / 2.32
-sd_tau <- 2/2.32#7 / 2.32
+sd_delta <- 10 / 2.32 # 10 / 2.32
+sd_tau <- 7 / 2.32 #7 / 2.32
 
 mod_data$mean_delta <- mean_delta
 mod_data$sd_delta <- sd_delta
@@ -183,7 +183,7 @@ hist(pred_events_forecast[,5])
 
 mod_surv_fit <- stan(file=file.path("~/Documents/git/peak-bloom-prediction/stan_programs/pheno_chill_nonlinear_with_forecasts.stan"), 
                      data=mod_data, init=simu_inits, seed=8438339,
-                     warmup=1500, iter=3000, control = list(adapt_delta = 0.8))#, refresh=0)
+                     warmup=1000, iter=2000, control = list(adapt_delta = 0.8))#, refresh=0)
 
 extract_mod <- extract(mod_surv_fit)
 # All Hamiltonian Monte Carlo diagnostics are clear.
@@ -192,7 +192,7 @@ util$check_all_hmc_diagnostics(diagnostics)
 
 # The diagnostics for all parameter expectands are clear.
 mod_surv_samples <- util$extract_expectand_vals(mod_surv_fit)
-names <- c('alpha', 'beta1', 'beta2', 'sigma','Z_forcing', 'Z_chill') #c(daily_forcings_plot, daily_chill_plot)
+names <- c('alpha', 'beta1', 'beta2', 'sigma','Z_forcing', 'Z_chill', 'delta', 'tau') #c(daily_forcings_plot, daily_chill_plot)
 base_samples <- util$filter_expectands(mod_surv_samples, names)
 util$check_all_expectand_diagnostics(base_samples)
 
@@ -204,7 +204,7 @@ psi0 <- matrix(rep(extract_mod$alpha, length(x_minus_x0)), nrow =length(extract_
   matrix(extract_mod$beta1)%*%x_minus_x0 +
   matrix(extract_mod$beta2)%*%(x_minus_x0^2)
 for (k in 1:length(x_minus_x0)) {
-  mod_surv_samples[[paste0('psi0[',k,']')]] <- matrix(psi0[,k], nrow=4, ncol=1500)
+  mod_surv_samples[[paste0('psi0[',k,']')]] <- matrix(psi0[,k], nrow=4, ncol=1000)
 }
 psi0_names <- grep('psi0', names(mod_surv_samples), value=TRUE)[1:length(x_minus_x0)]
 util$plot_hist_quantiles(mod_surv_samples, val_name_prefix = "psi0")  
@@ -214,6 +214,11 @@ util$plot_conditional_mean_quantiles(mod_surv_samples, psi0_names,x_minus_x0)
 par(mfrow=c(1, 1))
 pred_names <- grep('pred_events', names(mod_surv_samples), value=TRUE)
 util$plot_hist_quantiles(samples = mod_surv_samples, val_name_prefix = "pred_events",bin_delta = 5, baseline_values = mod_data$events, xlab = "Phenology Event")
+pred_forecast_names <- grep('pred_events_forecast', names(mod_surv_samples), value=TRUE)
+util$plot_hist_quantiles(samples = mod_surv_samples, val_name_prefix = "pred_events_forecast",bin_delta = 5, baseline_values = NULL, xlab = "Forecasted Phenology Event")
+
+util$plot_hist_quantiles(samples = mod_surv_samples, val_name_prefix = "mod_pred_temp",bin_delta = 5, baseline_values = NULL, xlab = "Forecasted Phenology Event")
+
 
 util$my_quantile(extract_mod$pred_events)
 util$my_quantile(mod_data$events)
@@ -358,15 +363,31 @@ lines(xs, ys, lwd=2, col=c_light_teal)
 abline(v=sigma_true)
 
 
-#####################################################################
-# model the temp forecasts along with it
-#####################################################################
+util$plot_expectand_pushforward(mod_surv_samples[["delta"]], 25,
+                                display_name="delta", flim=c(0, 0.5))
+xs <- seq(0, 0.5, 0.001)
+ys <- dnorm(xs, mean_delta, sd_delta)
+lines(xs, ys, lwd=2, col=c_light_teal)
+
+util$plot_expectand_pushforward(mod_surv_samples[["tau"]], 25,
+                                display_name="tau", flim=c(0, 3))
+xs <- seq(0, 3, 0.001)
+ys <- dnorm(xs, 0, sd_tau)
+lines(xs, ys, lwd=2, col=c_light_teal)
 
 
 
+util$plot_line_hists(mod_surv_samples$`pred_events_forecast[1]`, mod_surv_samples$`pred_events_forecast[5]`)
 
+util$my_quantile(mod_surv_samples$`pred_events_forecast[1]`)
+util$my_quantile(mod_surv_samples$`pred_events_forecast[2]`)
+util$my_quantile(mod_surv_samples$`pred_events_forecast[3]`)
+util$my_quantile(mod_surv_samples$`pred_events_forecast[4]`)
+util$my_quantile(mod_surv_samples$`pred_events_forecast[5]`)
 
-
-
-
+pred_events_forecast <- as.data.frame(extract_mod$pred_events_forecast)
+expected_pred_events_forecast <- round(colMeans(pred_events_forecast))
+expected_pred_events_date <- as.Date('2024-10-01') + expected_pred_events_forecast - 1
+expected_pred_events_forecast_change_base <- util$day_num_of_year(expected_pred_events_date)
+predictions <- data.frame(location=mod_data$sites_and_years_predict_df$location, prediction=expected_pred_events_forecast_change_base)
 

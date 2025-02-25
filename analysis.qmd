@@ -20,7 +20,7 @@ c_dark_teal <- c("#1D4F4F")
 nom_colors <- c("#DCBCBC", "#C79999", "#B97C7C", "#A25050", "#8F2727", "#7C0000")
 ```
 
-## Prep Data
+## Prepare Model Data
 
 ```{r}
 
@@ -32,30 +32,114 @@ base_list <- util$prep_base_data()
 d_init <- base_list$d_init
 locations_init <- base_list$locations_init
 
-# locations_init$max_temp_date <- '2025-02-04'
-
+# pull daily observed temperatures
 util$pull_daily_temperature_data(locations_init, out_file = 'data/daily_temperature.csv', max_date = '2025-02-14', min_date='2025-02-03', write_to_file = F)
+
+# pull daily temperature forecasts (openmeteo climate forecasts)
 util$pull_forecasted_temperature_data(locations_init, out_file = 'data/daily_forecasted_temperature.csv', min_date = NA, max_date = '2025-06-01', write_to_file = F)
 
+# load daily observed temperatures
 daily_temp_init <- read.csv('data/daily_temperature.csv')
 daily_temp_init$id<- paste(daily_temp_init$date, daily_temp_init$location, sep = "_")  # Create a composite key
 daily_temp <- daily_temp_init[order(daily_temp_init$id, daily_temp_init$timestamp_run, decreasing = TRUE), ]
 daily_temp <- daily_temp[!duplicated(daily_temp$id), ]
 
+# load daily temperature forecasts
 daily_forecast_temp_init <- read.csv('data/daily_forecasted_temperature.csv')
 daily_forecast_temp_init <- daily_forecast_temp_init[daily_forecast_temp_init$date >= '2010-01-01',]
+
+# deduplicate
 daily_forecast_temp_init$id<- paste(daily_forecast_temp_init$date, daily_forecast_temp_init$location, daily_forecast_temp_init$model, sep = "_")  # Create a composite key
 daily_forecast_temp <- daily_forecast_temp_init[order(daily_forecast_temp_init$id, daily_forecast_temp_init$timestamp_run, decreasing = TRUE), ]
 daily_forecast_temp <- daily_forecast_temp[!duplicated(daily_forecast_temp$id), ]
 
+# compute daily mean and sd of forecasted temperature (across full forecast ensemble)
 daily_forecast_temp_means <- aggregate(daily_temperature_2m_mean ~ date+location, data = daily_forecast_temp_init, function(x) c(mean = mean(x), sd = sd(x)))
 
-
+# prepare modeling data
 mod_data <- util$prep_mod_data(pheno_data_init = d_init, temp_data_init = daily_temp,  forecast_temp_data_init = daily_forecast_temp_means, plot_temp = F, plot_forecast_temp = F)
 ```
 
-```{r}
+## Set Prior Hyperparameters
 
+```{r}
+# chill day temp threshold
+mean_Z_chill <- 3
+sd_Z_chill <- 4 / 2.32 
+
+# forcing temp threshold
+mean_Z_forcing <- 6 
+sd_Z_forcing <- 4 / 2.32 
+
+# intercept for phenology 
+mean_alpha <- 35
+sd_alpha <- 7.45 / 2.32
+
+# center of covariate neighborhood 
+x0_chill_days <- 38
+
+# linear coefficient
+mean_beta1 <- -0.5
+sd_beta1 <- 0.21 / 2.32
+
+# quadratic coefficient
+mean_beta2 <- 0
+sd_beta2 <- 0.006 / 2.32
+
+# standard deviation of bloom events
+sd_sigma <- 3
+
+# temperature forecast modeling - bias term
+mean_delta <- 0
+sd_delta <- 10 / 2.32 
+
+# temperature forecast modeling - base uncertainty (independent of forecast ensemble sd)
+sd_tau <- 7 / 2.32 
+
+
+
+# add these hyperpriors for the 
+
+mod_data$mean_alpha <- mean_alpha
+mod_data$sd_alpha<- sd_alpha
+mod_data$mean_beta1 <- mean_beta1
+mod_data$sd_beta1 <- sd_beta1
+mod_data$mean_beta2 <- mean_beta2
+mod_data$sd_beta2 <- sd_beta2
+mod_data$sd_sigma<- sd_sigma
+
+mod_data$mean_Z_chill <- mean_Z_chill
+mod_data$sd_Z_chill <- sd_Z_chill
+mod_data$mean_Z_forcing <- mean_Z_forcing
+mod_data$sd_Z_forcing <-sd_Z_forcing
+mod_data$x0_chill_days <- x0_chill_days
+
+mod_data$mean_delta <- mean_delta
+mod_data$sd_delta <- sd_delta
+mod_data$sd_tau <- sd_tau
+
+
+# sample function for initial values for all parameters
+simu_inits <- function(chain_id) {
+  out <- list("alpha" = rnorm(1, mean_alpha, sd_alpha), 
+              "beta1" = rnorm(1, mean_beta1, sd_beta1), 
+              "beta2" = rnorm(1, mean_beta2, sd_beta2), 
+              "Z_chill" = rnorm(1, mean_Z_chill, sd_Z_chill),
+              "Z_forcing" = rnorm(1, mean_Z_forcing, sd_Z_forcing),
+              "sigma" = abs(rnorm(1, 0, sd_sigma)),
+              "delta" = rnorm(1, mean_delta, sd_delta),
+              "tau" = abs(rnorm(1, 0, sd_tau))
+              )
+  print(paste0('Chain ', chain_id, '...'))
+  print(out)
+  return(out)
+}
+
+```
+
+## Model
+
+```{r}
 
 
 
