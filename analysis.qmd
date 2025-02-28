@@ -208,9 +208,9 @@ util$plot_hist_quantiles(samples = mod_surv_samples, val_name_prefix = "pred_eve
 # sequence of relevant centered chill day totals
 x_minus_x0 <- seq(0,80) - mod_data$x0_chill_days
 # compute each HR (psi0) using posterior distributions of intercept, linear, and quadratic parameters
-psi0 <- matrix(rep(extract_mod$alpha, length(x_minus_x0)), nrow =length(extract_mod$alpha), ncol = length(x_minus_x0)) +
-  matrix(extract_mod$beta1)%*%x_minus_x0 +
-  matrix(extract_mod$beta2)%*%(x_minus_x0^2)
+psi0 <- matrix(rep(extract(mod_surv_fit,'alpha')[[1]], length(x_minus_x0)), nrow =length(extract(mod_surv_fit,'alpha')[[1]]), ncol = length(x_minus_x0)) +
+  matrix(extract(mod_surv_fit,'beta1')[[1]])%*%x_minus_x0 +
+  matrix(extract(mod_surv_fit,'beta2')[[1]])%*%(x_minus_x0^2)
 
 # add to sample list
 for (k in 1:length(x_minus_x0)) {
@@ -220,6 +220,68 @@ for (k in 1:length(x_minus_x0)) {
 # plot condition mean quantiles
 psi0_names <- grep('psi0', names(mod_surv_samples), value=TRUE)[1:length(x_minus_x0)]
 util$plot_conditional_mean_quantiles(mod_surv_samples, psi0_names,x_minus_x0, xlab = "Chill Days (Centered)", main = "Heat Requirement")
+```
+
+## Posterior vs. Prior Distributions
+
+```{r}
+
+# Chill function threshold
+util$plot_expectand_pushforward(mod_surv_samples[["Z_chill"]], 25,
+                                display_name="Z_chill", flim=c(-3, 10))
+xs <- seq(-3, 10, 0.01)
+ys <- dnorm(xs,mod_data$mean_Z_chill , mod_data$sd_Z_chill)
+lines(xs, ys, lwd=2, col=c_light_teal)
+
+# Forcing function threshold
+util$plot_expectand_pushforward(mod_surv_samples[["Z_forcing"]], 25,
+                                display_name="Z_forcing", flim=c(-3, 10))
+xs <- seq(-3, 10, 0.01)
+ys <- dnorm(xs, mod_data$mean_Z_forcing , mod_data$sd_Z_forcing)
+lines(xs, ys, lwd=2, col=c_light_teal)
+
+# HR parameters
+util$plot_expectand_pushforward(mod_surv_samples[["alpha"]], 25,
+                                display_name="HR Intercept", flim=c(10, 50))
+xs <- seq(10, 50, 0.01)
+ys <- dnorm(xs, mean_alpha, sd_alpha)
+lines(xs, ys, lwd=2, col=c_light_teal)
+
+util$plot_expectand_pushforward(mod_surv_samples[["beta1"]], 25,
+                                display_name="HR Linear", flim=c(-2, 1))
+xs <- seq(-2, 1, 0.01)
+ys <- dnorm(xs, mean_beta1, sd_beta1)
+lines(xs, ys, lwd=2, col=c_light_teal)
+
+util$plot_expectand_pushforward(mod_surv_samples[["beta2"]], 25,
+                                display_name="HR Quadratic", flim=c(-0.01, 0.02))
+xs <- seq(-0.03, 0.03, 0.0001)
+ys <- dnorm(xs, mean_beta2, sd_beta2)
+lines(xs, ys, lwd=2, col=c_light_teal)
+
+# Event timing variability
+util$plot_expectand_pushforward(mod_surv_samples[["sigma"]], 25,
+                                display_name="sigma", flim=c(0, 15))
+xs <- seq(0, 15, 0.1)
+ys <- dnorm(xs, 0, sd_sigma)
+lines(xs, ys, lwd=2, col=c_light_teal)
+
+
+# Temperature bias parameter
+par(mfrow=c(1,1))
+util$plot_expectand_pushforward(mod_surv_samples[["delta"]], 25,
+                                display_name="delta", flim=c(-10, 10))
+xs <- seq(-10, 10, 0.001)
+ys <- dnorm(xs, mean_delta, sd_delta)
+lines(xs, ys, lwd=2, col=c_light_teal)
+
+# Temperature baseline uncertainty parameter
+util$plot_expectand_pushforward(mod_surv_samples[["tau"]], 25,
+                                display_name="tau", flim=c(0, 10))
+xs <- seq(0, 10, 0.001)
+ys <- dnorm(xs, 0, sd_tau)
+lines(xs, ys, lwd=2, col=c_light_teal)
+
 ```
 
 ## Computing Environment
