@@ -24,6 +24,8 @@ nom_colors <- c("#DCBCBC", "#C79999", "#B97C7C", "#A25050", "#8F2727", "#7C0000"
 
 ```{r}
 
+renv::restore()
+
 util <- new.env()
 source('functions.R', local=util)
 
@@ -39,17 +41,19 @@ util$pull_daily_temperature_data(locations_init, out_file = 'data/daily_temperat
 util$pull_forecasted_temperature_data(locations_init, out_file = 'data/daily_forecasted_temperature.csv', min_date = NA, max_date = '2025-06-01', write_to_file = F)
 
 # load daily observed temperatures
-daily_temp_init <- read.csv('data/daily_temperature.csv')
+# daily_temp_init <- read.csv('data/daily_temperature.csv')
+daily_temp_init <- read.csv(unz('data/temperature_data_zip_files/daily_temperature.csv.zip', "daily_temperature.csv"))
 daily_temp_init$id<- paste(daily_temp_init$date, daily_temp_init$location, sep = "_")  # Create a composite key
 daily_temp <- daily_temp_init[order(daily_temp_init$id, daily_temp_init$timestamp_run, decreasing = TRUE), ]
 daily_temp <- daily_temp[!duplicated(daily_temp$id), ]
 
 # load daily temperature forecasts
-daily_forecast_temp_init <- read.csv('data/daily_forecasted_temperature.csv')
+# daily_forecast_temp_init <- read.csv('data/daily_forecasted_temperature.csv')
+daily_forecast_temp_init <- read.csv(unz('data/temperature_data_zip_files/daily_forecasted_temperature.csv.zip', "daily_forecasted_temperature.csv"))
 daily_forecast_temp_init <- daily_forecast_temp_init[daily_forecast_temp_init$date >= '2010-01-01',]
 
-# deduplicate
-daily_forecast_temp_init$id<- paste(daily_forecast_temp_init$date, daily_forecast_temp_init$location, daily_forecast_temp_init$model, sep = "_")  # Create a composite key
+# de-duplicate (take latest pulled temp per location/date)
+daily_forecast_temp_init$id<- paste(daily_forecast_temp_init$date, daily_forecast_temp_init$location, daily_forecast_temp_init$model, sep = "_") 
 daily_forecast_temp <- daily_forecast_temp_init[order(daily_forecast_temp_init$id, daily_forecast_temp_init$timestamp_run, decreasing = TRUE), ]
 daily_forecast_temp <- daily_forecast_temp[!duplicated(daily_forecast_temp$id), ]
 
@@ -130,8 +134,8 @@ simu_inits <- function(chain_id) {
               "delta" = rnorm(1, mean_delta, sd_delta),
               "tau" = abs(rnorm(1, 0, sd_tau))
               )
-  print(paste0('Chain ', chain_id, '...'))
-  print(out)
+  #print(paste0('Chain ', chain_id, '...'))
+  #print(out)
   return(out)
 }
 
@@ -141,7 +145,42 @@ simu_inits <- function(chain_id) {
 
 ```{r}
 
+# fit model
+mod_surv_fit <- stan(file=file.path("stan_programs/pheno_chill_nonlinear_with_forecasts.stan"),
+                     data=mod_data, init=simu_inits, seed=8438339,
+                     warmup=1000, iter=2000, control = list(adapt_delta = 0.8))
+
+# extract samples
+mod_surv_samples <- util$extract_expectand_vals(mod_surv_fit)
+
+# HMC and parameter expectand diagnostics
+diagnostics <- util$extract_hmc_diagnostics(mod_surv_fit)
+util$check_all_hmc_diagnostics(diagnostics)
+names <- c('alpha', 'beta1', 'beta2', 'sigma','Z_forcing', 'Z_chill', 'delta', 'tau') #c(daily_forcings_plot, daily_chill_plot)
+base_samples <- util$filter_expectands(mod_surv_samples, names)
+util$check_all_expectand_diagnostics(base_samples)
 
 
+```
+
+## Get Predictions and Write to File
+
+```{r}
+
+
+pred_events_forecast_names <- paste0('pred_events_forecast[', 1:nrow(mod_data$sites_and_years_predict_df), ']')
+pred_events_forecast <- sapply(pred_events_forecast_names, function(name) mod_surv_samples[[name]]) # as.data.frame(extract_mod$pred_events_forecast)
+expected_pred_events_forecast <- round(colMeans(pred_events_forecast))
+expected_pred_events_date <- as.Date('2024-10-01') + expected_pred_events_forecast - 1
+expected_pred_events_forecast_change_base <- util$day_num_of_year(expected_pred_events_date)
+predictions <- data.frame(location=mod_data$sites_and_years_predict_df$location, prediction=expected_pred_events_forecast_change_base)
+
+write.csv(predictions, "data/predictions.csv", row.names = F)
+```
+
+## Computing Environment
+
+```{r}
+sessionInfo()
 
 ```
