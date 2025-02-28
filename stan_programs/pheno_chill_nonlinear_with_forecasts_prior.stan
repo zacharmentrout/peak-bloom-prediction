@@ -23,12 +23,6 @@ functions {
       return exp(Z - T) / (1 + exp(Z - T));
     }
   }
-  
-  // Log of chilling function
-  real log_chill_days(real T, real Z) {
-    return -log1p_exp(T - Z);
-  }
-
 
 }
 

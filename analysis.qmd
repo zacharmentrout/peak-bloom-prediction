@@ -35,7 +35,7 @@ d_init <- base_list$d_init
 locations_init <- base_list$locations_init
 
 # pull daily observed temperatures
-util$pull_daily_temperature_data(locations_init, out_file = 'data/daily_temperature.csv', max_date = '2025-02-14', min_date='2025-02-03', write_to_file = F)
+util$pull_daily_temperature_data(locations_init, out_file = 'data/daily_temperature.csv', max_date = '2025-02-26', min_date='2025-02-14', write_to_file = F)
 
 # pull daily temperature forecasts (openmeteo climate forecasts)
 util$pull_forecasted_temperature_data(locations_init, out_file = 'data/daily_forecasted_temperature.csv', min_date = NA, max_date = '2025-06-01', write_to_file = F)
@@ -43,6 +43,7 @@ util$pull_forecasted_temperature_data(locations_init, out_file = 'data/daily_for
 # load daily observed temperatures
 # daily_temp_init <- read.csv('data/daily_temperature.csv')
 daily_temp_init <- read.csv(unz('data/temperature_data_zip_files/daily_temperature.csv.zip', "daily_temperature.csv"))
+daily_temp_init <- na.omit(daily_temp_init)
 daily_temp_init$id<- paste(daily_temp_init$date, daily_temp_init$location, sep = "_")  # Create a composite key
 daily_temp <- daily_temp_init[order(daily_temp_init$id, daily_temp_init$timestamp_run, decreasing = TRUE), ]
 daily_temp <- daily_temp[!duplicated(daily_temp$id), ]
@@ -169,13 +170,13 @@ util$check_all_expectand_diagnostics(base_samples)
 
 
 pred_events_forecast_names <- paste0('pred_events_forecast[', 1:nrow(mod_data$sites_and_years_predict_df), ']')
-pred_events_forecast <- sapply(pred_events_forecast_names, function(name) mod_surv_samples[[name]]) # as.data.frame(extract_mod$pred_events_forecast)
+pred_events_forecast <- sapply(pred_events_forecast_names, function(name) mod_surv_samples[[name]]) 
 expected_pred_events_forecast <- round(colMeans(pred_events_forecast))
 expected_pred_events_date <- as.Date('2024-10-01') + expected_pred_events_forecast - 1
 expected_pred_events_forecast_change_base <- util$day_num_of_year(expected_pred_events_date)
-predictions <- data.frame(location=mod_data$sites_and_years_predict_df$location, prediction=expected_pred_events_forecast_change_base)
+predictions <- data.frame(location=mod_data$sites_and_years_predict_df$location, prediction=expected_pred_events_forecast_change_base, predicted_bloom_date=expected_pred_events_date)
 
-write.csv(predictions, "data/predictions.csv", row.names = F)
+write.csv(predictions, "cherry-predictions.csv", row.names = F)
 ```
 
 ## Computing Environment

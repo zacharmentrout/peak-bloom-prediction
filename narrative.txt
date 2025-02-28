@@ -1,0 +1,32 @@
+
+
+This analysis uses a Bayesian threshold survival model framework developed in Betancourt 2024. Betancourt incorporates a warping function into the standard exponential survival model that suppresses the cumulative hazard function up until some threshold value is reached. This thresholding framework is a natural fit in the context of perennial spring phenology, the models for which typically involve some heat requirement (HR) that is met via forcing temperature accumulation.
+
+The hazard function for this model is a logistic forcing function of daily mean 2-meter temperature measurements, the midpoint of which is defined by a temperature threshold parameter. For each location starting on February 1 of each year, the model accumulates daily temperature stimulus via the forcing function. The HR is the value past which the cumulative forcings influence the survival function normally and bloom events begin to occur.
+
+Both observational and experimental evidence suggests that plants have a lower HR the longer they experience chill accumulation (CA) in endodormancy (Wang et al., 2020). The model defines HR as a quadratic function of winter CA in order to flexibly capture this CA-HR relationship, thus requiring intercept, linear coefficient, and quadratic coefficient parameters. The CA for each year is calculated by summing the output of a chilling function of daily mean 2-meter temperatures between October 1 of the prior year through February 1. The chilling function is reverse logistic (such that it decreases with increasing temperature) with a midpoint defined by a separate chilling temperature threshold parameter.
+
+Bayesian inference was conducted using Stan, after which posterior samples of the model parameters were used to construct a posterior distribution of the bloom days.
+
+Priors...
+
+Given the chosen model and the fact the competition centers on a predictive task, historical daily temperature observations are insufficient. In order to incorporate uncertainty about future temperature, daily temperature was modeled simultaneously and informed by an ensemble of daily climate temperature forecasts for each location. Specifically, daily temperature was assumed to be normally distributed with mean equal to the sum of the forecast ensemble mean temperature and a bias parameter, and standard deviation equal to the root-sum-of-squares of the ensemble standard deviation and a baseline epistemic uncertainty parameter. 
+
+All historical temperatures and climate forecast data was pulled via the OpenMeteo API. [citation?] 
+
+
+
+References
+
+Michael Betancourt (2024). Modifying Survival Models to Accommodate Thresholding Behavior. Available on arXiv: arXiv:2212.07602
+
+Wang, H., Wu, C., Ciais, P. et al. Overestimation of the effect of climatic warming on spring phenology due to misrepresentation of chilling. Nat Commun 11, 4945 (2020). https://doi.org/10.1038/s41467-020-18743-8
+
+
+
+
+
+
+
+
+

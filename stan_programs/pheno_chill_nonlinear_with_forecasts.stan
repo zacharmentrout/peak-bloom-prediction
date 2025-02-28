@@ -110,39 +110,29 @@ parameters {
   // Forcing/Chilling Parameters
   real Z_chill; // Maximum temperature for non-zero chill days
   real Z_forcing; // Minimum temperature for non-zero forcing (C)
-  real<lower=0> alpha; // intercept for phenology threshold
-  real beta1; // coefficient of chill day fraction covariate for phenology threshold +/- 1ish but bias negative
-  real beta2; // quadratic term 
+  real<lower=0> alpha; // intercept for phenology HR threshold
+  real beta1; // HR linear coefficient
+  real beta2; // HR quadratic coefficient
   real<lower=0> sigma; // Overall scale gamma^{-1} * alpha (Forcing Units)
   
 
   // Temperature model priors
   real delta; // mean forecast bias
-  real<lower=0> tau; // baseline forecast sd (independent of forecast ensemble uncertainty)
+  real<lower=0> tau; // baseline epistemic sd (independent of forecast ensemble uncertainty)
 }
 
 model {
-  // Prior model
+  // Prior model - Phenology
   Z_chill ~ normal(mean_Z_chill, sd_Z_chill);
   Z_forcing ~ normal(mean_Z_forcing, sd_Z_forcing);
   alpha ~ normal(mean_alpha, sd_alpha);
   beta1 ~ normal(mean_beta1, sd_beta1);
   beta2 ~ normal(mean_beta2, sd_beta2);
-  sigma ~ normal(0, sd_sigma);     // 0   <~ sigma (FU) <~ 10
+  sigma ~ normal(0, sd_sigma); 
   
+  // Prior model - Temperature forecasts
   delta ~ normal(mean_delta, sd_delta);
   tau ~ normal(0, sd_tau);
-
-
-  // obs temp w/ forecast
-  // for (i in 1:N_obs_temp_w_forecast) {
-  //   target += normal_lpdf(obs_temp_w_forecast[i] | delta + forecast_mean_w_obs_temp[i], sqrt(tau^2 + forecast_sd_w_obs_temp[i]^2));
-  // }
-  // 
-  // // pred (obs.) temp w/ forecast
-  // for (i in 1:N_pred_temp_w_forecast) {
-  //   target += normal_lpdf(pred_temp_w_forecast[i] | delta + forecast_mean_w_pred_temp[i], sqrt(tau^2 + forecast_sd_w_pred_temp[i]^2));
-  // }
   
   vector[N_obs_temp_w_forecast] obs_temp_means = delta + to_vector(forecast_mean_w_obs_temp);
   vector[N_obs_temp_w_forecast] obs_temp_sds = sqrt(tau^2 + square(to_vector(forecast_sd_w_obs_temp)));
@@ -168,18 +158,14 @@ model {
     // Extract event data
     int event_start_idx = event_start_idxs[i];
     int event_end_idx = event_start_idxs[i] + N_events[i] - 1;
-    
-    //int local_precursor_events[N_events[i]]
-    //  = precursor_events[event_start_idx:event_end_idx];
+
     int local_precursor_event = precursor_events[i]; 
-    // int local_events[N_events[i]]
-    //   = events[event_start_idx:event_end_idx];
     int local_event = events[i];
     
     // Compute needed daily forcings
     real sum_chill_days;
-    int first_precursor_event = local_precursor_event;// min(local_precursor_events);
-    int last_event = local_event; //max(local_events);
+    int first_precursor_event = local_precursor_event;
+    int last_event = local_event;
     vector[last_event] daily_forcings;
     real Psi0;
     real x_minus_x0;
@@ -195,15 +181,13 @@ model {
       daily_forcings[n] = forcing(local_temps[n], Z_forcing, k);
     }
     
-    x_minus_x0 = (sum_chill_days - x0_chill_days);
+    // Centered chill accumulation (CA)
+    x_minus_x0 = (sum_chill_days - x0_chill_days); 
     
+    // Heat Requirement
     Psi0 = alpha + beta1*x_minus_x0 + beta2*x_minus_x0^2;
-    
   
     // Increment density for each event
-    //for(n in 1:N_events[i]) {
-      // Aggregated forcings during phenology interval
-      // real Psi = sum(daily_forcings[local_precursor_events[n]:local_events[n]]);
     real Psi = sum(daily_forcings[local_precursor_event:local_event]);
     // Log of derivative of aggregated forcings
     real log_dPsidt = log_forcing(obs_temps[local_event], 
@@ -211,8 +195,6 @@ model {
     
     // Add event density to model
     target += logistic_lpdf(Psi | Psi0, sigma * sqrt(3) / pi()) + log_dPsidt;
-      //target += normal_lpdf(Psi | Psi0, sigma) + log_dPsidt;
-    //}
   }
 }
 
@@ -293,7 +275,7 @@ generated quantities {
     // Simulate retrodictions for observed events
     for(n in 1:N_events[i]) {
       int event_idx = event_start_idxs[i] + n - 1;
-      int precursor = local_precursor_event; //s[n];
+      int precursor = local_precursor_event; 
       real init_forcing = accum_forcings[precursor];
       
       real l = logistic_rng(Psi0, sigma * sqrt(3) / pi());

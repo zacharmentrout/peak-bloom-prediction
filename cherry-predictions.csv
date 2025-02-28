@@ -1,6 +1,6 @@
-"location","prediction","lower","upper"
-"washingtondc",90,76,103
-"liestal",94,80,107
-"kyoto",94,81,107
-"vancouver",92,85,98
-"newyorkcity",92,85,98
+"location","prediction","predicted_bloom_date"
+"kyoto",96,2025-04-06
+"liestal",94,2025-04-04
+"newyorkcity",104,2025-04-14
+"vancouver",98,2025-04-08
+"washingtondc",92,2025-04-02

@@ -198,7 +198,6 @@ util$check_all_expectand_diagnostics(base_samples)
 
 
 par(mfrow=c(1,1))
-#x_minus_x0 <- extract_mod$sum_chill_days_vector - mod_data$x0_chill_days
 x_minus_x0 <- seq(0,80) - mod_data$x0_chill_days
 psi0 <- matrix(rep(extract_mod$alpha, length(x_minus_x0)), nrow =length(extract_mod$alpha), ncol = length(x_minus_x0)) +
   matrix(extract_mod$beta1)%*%x_minus_x0 +
@@ -212,7 +211,7 @@ util$plot_conditional_mean_quantiles(mod_surv_samples, psi0_names,x_minus_x0)
 
 # Posterior predictive
 par(mfrow=c(1, 1))
-pred_names <- grep('pred_events', names(mod_surv_samples), value=TRUE)
+pred_names <- grep('pred_events\\[', names(mod_surv_samples), value=TRUE)
 util$plot_hist_quantiles(samples = mod_surv_samples, val_name_prefix = "pred_events",bin_delta = 5, baseline_values = mod_data$events, xlab = "Phenology Event")
 pred_forecast_names <- grep('pred_events_forecast', names(mod_surv_samples), value=TRUE)
 util$plot_hist_quantiles(samples = mod_surv_samples, val_name_prefix = "pred_events_forecast",bin_delta = 5, baseline_values = NULL, xlab = "Forecasted Phenology Event")
@@ -275,6 +274,8 @@ for (l in locations) {
 }
 
 locations <- unique(mod_data$sites_and_years_df$location)
+x_minus_x0 <- extract_mod$sum_chill_days_vector - mod_data$x0_chill_days
+
 for (l in locations) {
   bin_min <- NULL
   bin_max <- NULL
@@ -363,6 +364,7 @@ lines(xs, ys, lwd=2, col=c_light_teal)
 abline(v=sigma_true)
 
 
+par(mfrow=c(1,1))
 util$plot_expectand_pushforward(mod_surv_samples[["delta"]], 25,
                                 display_name="delta", flim=c(0, 0.5))
 xs <- seq(0, 0.5, 0.001)
@@ -385,7 +387,8 @@ util$my_quantile(mod_surv_samples$`pred_events_forecast[3]`)
 util$my_quantile(mod_surv_samples$`pred_events_forecast[4]`)
 util$my_quantile(mod_surv_samples$`pred_events_forecast[5]`)
 
-pred_events_forecast <- as.data.frame(extract_mod$pred_events_forecast)
+pred_events_forecast_names <- paste0('pred_events_forecast[', 1:nrow(mod_data$sites_and_years_predict_df), ']')
+pred_events_forecast <- sapply(pred_events_forecast_names, function(name) mod_surv_samples[[name]]) # as.data.frame(extract_mod$pred_events_forecast)
 expected_pred_events_forecast <- round(colMeans(pred_events_forecast))
 expected_pred_events_date <- as.Date('2024-10-01') + expected_pred_events_forecast - 1
 expected_pred_events_forecast_change_base <- util$day_num_of_year(expected_pred_events_date)
