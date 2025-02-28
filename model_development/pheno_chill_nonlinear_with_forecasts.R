@@ -361,7 +361,6 @@ util$plot_expectand_pushforward(mod_surv_samples[["sigma"]], 25,
 xs <- seq(0, 15, 0.1)
 ys <- dnorm(xs, 0, sd_sigma)
 lines(xs, ys, lwd=2, col=c_light_teal)
-abline(v=sigma_true)
 
 
 par(mfrow=c(1,1))
@@ -372,14 +371,14 @@ ys <- dnorm(xs, mean_delta, sd_delta)
 lines(xs, ys, lwd=2, col=c_light_teal)
 
 util$plot_expectand_pushforward(mod_surv_samples[["tau"]], 25,
-                                display_name="tau", flim=c(0, 3))
-xs <- seq(0, 3, 0.001)
+                                display_name="tau", flim=c(0, 10))
+xs <- seq(0, 10, 0.001)
 ys <- dnorm(xs, 0, sd_tau)
 lines(xs, ys, lwd=2, col=c_light_teal)
 
 
 
-util$plot_line_hists(mod_surv_samples$`pred_events_forecast[1]`, mod_surv_samples$`pred_events_forecast[5]`)
+util$plot_line_hists(mod_surv_samples$`pred_events_forecast[3]`, mod_surv_samples$`pred_events_forecast[4]`)
 
 util$my_quantile(mod_surv_samples$`pred_events_forecast[1]`)
 util$my_quantile(mod_surv_samples$`pred_events_forecast[2]`)
