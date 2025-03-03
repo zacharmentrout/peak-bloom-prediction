@@ -1,6 +1,8 @@
 ---
 title: "Peak Bloom Prediction"
-format: html
+format:
+  html:
+    self-contained: true
 editor: visual
 ---
 
